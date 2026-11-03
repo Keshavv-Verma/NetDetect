@@ -1,0 +1,64 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Streamlit runtime & credentials (keep config.toml)
+.streamlit/*
+!.streamlit/config.toml
+.streamlit/secrets.toml
+
+# Large packet capture dumps (keep sample)
+*.pcap
+*.pcapng
+*.cap
+!sample_pcaps/sample_traffic.pcap
+
+# Temporary & scratch scripts
+scratch/
+
+# Datasets & raw data files (prevent accidental commit of large CSVs)
+data/
+dataset/
+datasets/
+
+# OS-generated files
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+
+# IDE & Editor files
+.vscode/*
+!.vscode/settings.json
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Python packaging & testing
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
