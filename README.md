@@ -97,6 +97,9 @@ NetDetect/
 ├── sample_pcaps/
 │   └── sample_traffic.pcap       # Sample PCAP capture for testing
 ├── .env.example                  # Environment configuration template
+├── .dockerignore                 # Docker build exclusions
+├── Dockerfile                    # Containerization specification
+├── packages.txt                  # Linux system packages (Streamlit Cloud / Debian)
 ├── requirements.txt              # Project dependencies
 └── README.md
 ```

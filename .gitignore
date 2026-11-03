@@ -33,6 +33,12 @@ scratch/
 /data/
 /dataset/
 /datasets/
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
 
 # Preserve essential live simulation dataset
 !live_ids/data/
