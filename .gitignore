@@ -29,10 +29,14 @@ env/
 # Temporary & scratch scripts
 scratch/
 
-# Datasets & raw data files (prevent accidental commit of large CSVs)
-data/
-dataset/
-datasets/
+# Raw dataset directories at root (prevent accidental commit of huge training CSVs)
+/data/
+/dataset/
+/datasets/
+
+# Preserve essential live simulation dataset
+!live_ids/data/
+!live_ids/data/KDDTest+.txt
 
 # OS-generated files
 .DS_Store
@@ -46,19 +50,26 @@ desktop.ini
 *~
 
 # IDE & Editor files
+.idea/
 .vscode/*
 !.vscode/settings.json
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 
-# Python packaging & testing
+# Python packaging & testing caches
 build/
 dist/
 *.egg-info/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .coverage
 htmlcov/
 
-# Logs
+# Logs & runtime activity traces
 *.log
+*.jsonl
+/logs/
+live_ids/logs/*
+!live_ids/logs/.gitkeep
