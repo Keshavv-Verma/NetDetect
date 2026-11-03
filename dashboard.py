@@ -1,5 +1,6 @@
 
 import os
+import html
 import sys
 import time
 import subprocess
@@ -11,10 +12,10 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime
-from scapy.all import AsyncSniffer, wrpcap
+# Scapy AsyncSniffer removed (replaced with NetDetect live simulation)
 
 st.set_page_config(
-    page_title="NetGuard AI",
+    page_title="NetDetect",
     page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -48,9 +49,21 @@ html, body, [class*="css"] {
     font-family: var(--sans) !important;
 }
 
-#MainMenu, footer, [data-testid="stDeployButton"], .stDeployButton, [data-testid="stDecoration"] {
+#MainMenu, 
+footer, 
+[data-testid="stDeployButton"], 
+.stDeployButton, 
+[data-testid="stAppDeployButton"], 
+.stAppDeployButton,
+[data-testid="stToolbarActions"],
+.stToolbarActions,
+[data-testid="stDecoration"] {
     display: none !important;
     visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    width: 0 !important;
+    pointer-events: none !important;
 }
 
 header[data-testid="stHeader"], [data-testid="stToolbar"] {
@@ -366,6 +379,221 @@ hr { border-color: var(--border) !important; }
 ::-webkit-scrollbar-track { background: var(--bg2); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ---------- Traffic Monitoring Native SPA Styles ---------- */
+.tm-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--bg2);
+    color: var(--text-muted);
+}
+.tm-status-pill.live {
+    border-color: #4FD1C5;
+    color: #4FD1C5;
+    background: rgba(79, 209, 197, 0.06);
+}
+.tm-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #475569;
+}
+.tm-status-dot.live {
+    background: #4FD1C5;
+    box-shadow: 0 0 0 0 rgba(79, 209, 197, 0.7);
+    animation: tm-pulse-dot 1.6s infinite;
+}
+@keyframes tm-pulse-dot {
+    0% { box-shadow: 0 0 0 0 rgba(79, 209, 197, 0.6); }
+    70% { box-shadow: 0 0 0 8px rgba(79, 209, 197, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(79, 209, 197, 0); }
+}
+
+/* Pulse strip */
+.pulse-wrap {
+    border: 1px solid var(--border);
+    background: #111827;
+    border-radius: 8px;
+    padding: 10px 18px;
+    margin-bottom: 1.2rem;
+}
+.pulse-label {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+}
+#pulse-strip {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 36px;
+    overflow-x: hidden;
+}
+.pulse-bar {
+    flex: 1;
+    min-width: 3px;
+    max-width: 14px;
+    min-height: 4px;
+    border-radius: 2px 2px 0 0;
+    background: #1e2d45;
+    transition: height 0.25s ease;
+}
+.pulse-bar.info { background: #4FD1C5; }
+.pulse-bar.low { background: #F2C94C; }
+.pulse-bar.high { background: #F2994A; }
+.pulse-bar.critical { background: #EB5757; }
+
+/* Stats row */
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 1.4rem;
+}
+.stat-card {
+    background: #111827;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+}
+.stat-card .label {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+}
+.stat-card .value {
+    font-family: var(--mono);
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text);
+}
+.stat-card.alert .value { color: #EB5757; }
+.stat-card.normal .value { color: #4FD1C5; }
+
+/* Content Grid */
+.content-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.6fr;
+    gap: 16px;
+}
+.panel {
+    background: #111827;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: #1a2235;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    color: var(--text);
+}
+.panel-header .count {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+.panel-body {
+    max-height: 520px;
+    overflow-y: auto;
+}
+
+/* Alert list */
+.alert-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+}
+.alert-row:last-child { border-bottom: none; }
+.sev-tag {
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    font-weight: 700;
+    width: 60px;
+    text-align: center;
+    flex-shrink: 0;
+}
+.sev-tag.info { background: rgba(79,209,197,0.15); color: #4FD1C5; }
+.sev-tag.low { background: rgba(242,201,76,0.15); color: #F2C94C; }
+.sev-tag.high { background: rgba(242,153,74,0.15); color: #F2994A; }
+.sev-tag.critical { background: rgba(235,87,87,0.18); color: #EB5757; }
+.alert-cat { color: var(--text); font-weight: 600; width: 68px; flex-shrink: 0; }
+.alert-ip { color: var(--text-muted); flex: 1; font-size: 0.73rem; }
+.alert-time { color: var(--text-muted); font-size: 0.7rem; flex-shrink: 0; }
+
+/* Activity table */
+.tm-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+}
+.tm-table thead th {
+    position: sticky;
+    top: 0;
+    background: #1a2235;
+    text-align: left;
+    padding: 9px 12px;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--border);
+}
+.tm-table tbody td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #172234;
+    color: var(--text-muted);
+    font-size: 0.73rem;
+}
+.tm-table tbody tr.is-attack td { color: var(--text); }
+.tm-table tbody tr.is-attack { background: rgba(235, 87, 87, 0.06); }
+.badge {
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+.badge.normal { background: rgba(79,209,197,0.12); color: #4FD1C5; }
+.badge.attack { background: rgba(235,87,87,0.15); color: #EB5757; }
+.tm-empty-state {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--text-muted);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+}
+
+@media (max-width: 900px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .content-grid { grid-template-columns: 1fr; }
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -375,17 +603,6 @@ def panel_title(icon, text):
         f'<div class="ng-panel-title"><span>{icon}</span> {text}</div>',
         unsafe_allow_html=True,
     )
-
-def html_panel(icon, title, content):
-    panel_html = f"""
-    <div class="ng-panel">
-        <div class="ng-panel-title">{icon} {title}</div>
-        {content}
-    </div>
-    """
-    st.markdown(panel_html, unsafe_allow_html=True)
-
-
 
 def html_panel(icon, title, body_html):
     st.markdown(f"""
@@ -418,10 +635,11 @@ def _plotly_layout(title="", height=320):
 
 def render_topbar(status="ready"):
     status_map = {
-        "ready":    ("SYSTEM READY",      "ready"),
-        "scanning": ("ANALYZING...",      "scanning"),
-        "attack":   ("⚠ THREAT DETECTED", "alert"),
-        "normal":   ("ALL CLEAR",         "ready"),
+        "ready":    ("SYSTEM READY",       "ready"),
+        "scanning": ("ANALYZING...",       "scanning"),
+        "attack":   ("⚠ THREAT DETECTED",  "alert"),
+        "normal":   ("ALL CLEAR",          "ready"),
+        "live":     ("LIVE STREAM ACTIVE", "scanning"),
     }
     label, cls = status_map.get(status, ("READY", "ready"))
     ts = datetime.now().strftime("%Y-%m-%d  %H:%M:%S")
@@ -430,8 +648,8 @@ def render_topbar(status="ready"):
       <div class="ng-logo">
         <div class="ng-logo-icon">🛡️</div>
         <div class="ng-logo-text">
-          <h1>NetGuard AI</h1>
-          <p>Network Threat Intelligence Platform</p>
+          <h1>NetDetect</h1>
+          <p>AI-Powered Network Intrusion Detection System</p>
         </div>
       </div>
       <div style="text-align:right">
@@ -779,53 +997,216 @@ def render_results(result, raw_df, filename="uploaded.pcap"):
             )
 
 
-def render_live_capture_tab():
-    html_panel("🎙️", "Live Network Capture", """
-    <div class="ng-callout">
-      <b>Live capture is not available on the cloud version.</b><br><br>
-      This feature requires direct access to your machine's network interface and
-      administrator privileges — which cloud servers don't support.
-    </div>
-    """)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# NATIVE TRAFFIC MONITORING ENGINE (NSL-KDD CLASSIFIER & SIMULATOR)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _format_time(iso_str):
+    if not iso_str:
+        return "--:--:--"
+    try:
+        s = str(iso_str).strip()
+        if " " in s:
+            s = s.replace(" ", "T")
+        if "T" in s:
+            return s.split("T")[1].split(".")[0].split("+")[0]
+        return s.split(".")[0].split("+")[0][:8]
+    except Exception:
+        return str(iso_str)[:8]
+
+
+def _build_traffic_monitoring_html(stats, alerts, activity, is_running):
+    total = stats.get("total_analyzed", 0)
+    alerts_count = stats.get("total_alerts", 0)
+    normal_count = stats.get("normal_count", 0)
+    rate = f"{round((alerts_count / total) * 100)}%" if total > 0 else "0%"
+
+    # Pulse strip bars (last 60 records, newest on right)
+    heights = {"info": 8, "low": 16, "high": 26, "critical": 34}
+    pulse_records = list(reversed(activity[:60]))
+    pulse_bars = []
+    idle_count = max(0, 60 - len(pulse_records))
+    for _ in range(idle_count):
+        pulse_bars.append('<div class="pulse-bar" style="height:4px"></div>')
+    for r in pulse_records:
+        sev = r.get("severity", "info")
+        h = heights.get(sev, 6)
+        pulse_bars.append(f'<div class="pulse-bar {sev}" style="height:{h}px"></div>')
+    pulse_strip_html = "".join(pulse_bars)
+
+    # Alerts feed list
+    if not alerts:
+        alerts_body_html = '<div class="tm-empty-state">No alerts yet &mdash; start monitoring to begin analysis.</div>'
+    else:
+        alert_rows = []
+        for a in alerts:
+            sev = a.get("severity", "info")
+            cat = html.escape(str(a.get("predicted_category", "Unknown")))
+            src = html.escape(str(a.get("src_ip", "N/A")))
+            dst = html.escape(str(a.get("dst_ip", "N/A")))
+            ts = _format_time(a.get("timestamp"))
+            alert_rows.append(
+                f'<div class="alert-row">'
+                f'<span class="sev-tag {sev}">{sev}</span>'
+                f'<span class="alert-cat">{cat}</span>'
+                f'<span class="alert-ip">{src} &rarr; {dst}</span>'
+                f'<span class="alert-time">{ts}</span>'
+                f'</div>'
+            )
+        alerts_body_html = "".join(alert_rows)
+
+    # Activity table
+    if not activity:
+        activity_body_html = '<tr><td colspan="8" class="tm-empty-state">No activity recorded yet.</td></tr>'
+    else:
+        rows = []
+        for r in activity:
+            is_atk = r.get("is_attack", False)
+            cls = "is-attack" if is_atk else ""
+            badge_cls = "attack" if is_atk else "normal"
+            badge_text = "ATTACK" if is_atk else "NORMAL"
+            ts = _format_time(r.get("timestamp"))
+            src = html.escape(str(r.get("src_ip", "N/A")))
+            dst = html.escape(str(r.get("dst_ip", "N/A")))
+            proto = html.escape(str(r.get("protocol_type", "-")))
+            srv = html.escape(str(r.get("service", "-")))
+            cat = html.escape(str(r.get("predicted_category", "Normal")))
+            conf = f"{int(r.get('confidence', 0) * 100)}%"
+            rows.append(
+                f'<tr class="{cls}">'
+                f'<td>{ts}</td>'
+                f'<td>{src}</td>'
+                f'<td>{dst}</td>'
+                f'<td>{proto}</td>'
+                f'<td>{srv}</td>'
+                f'<td>{cat}</td>'
+                f'<td>{conf}</td>'
+                f'<td><span class="badge {badge_cls}">{badge_text}</span></td>'
+                f'</tr>'
+            )
+        activity_body_html = "".join(rows)
+
+    return (
+        f'<div class="pulse-wrap">'
+        f'<div class="pulse-label">LIVE TRAFFIC PULSE</div>'
+        f'<div id="pulse-strip">{pulse_strip_html}</div>'
+        f'</div>'
+        f'<div class="stats-row">'
+        f'<div class="stat-card"><div class="label">RECORDS ANALYZED</div><div class="value">{total}</div></div>'
+        f'<div class="stat-card alert"><div class="label">ALERTS RAISED</div><div class="value">{alerts_count}</div></div>'
+        f'<div class="stat-card normal"><div class="label">NORMAL TRAFFIC</div><div class="value">{normal_count}</div></div>'
+        f'<div class="stat-card"><div class="label">DETECTION RATE</div><div class="value">{rate}</div></div>'
+        f'</div>'
+        f'<div class="content-grid">'
+        f'<div class="panel">'
+        f'<div class="panel-header"><span>ALERT FEED</span><span class="count">{len(alerts)} ALERTS</span></div>'
+        f'<div class="panel-body">{alerts_body_html}</div>'
+        f'</div>'
+        f'<div class="panel">'
+        f'<div class="panel-header"><span>TRAFFIC ACTIVITY LOG</span><span class="count">{len(activity)} RECORDS</span></div>'
+        f'<div class="panel-body">'
+        f'<table class="tm-table">'
+        f'<thead><tr><th>Time</th><th>Source IP</th><th>Dest IP</th><th>Proto</th><th>Service</th><th>Category</th><th>Conf.</th><th>Status</th></tr></thead>'
+        f'<tbody>{activity_body_html}</tbody>'
+        f'</table>'
+        f'</div>'
+        f'</div>'
+        f'</div>'
+    )
+
+
+def _render_monitoring_markup(html_markup):
+    if hasattr(st, "html"):
+        st.html(html_markup)
+    else:
+        st.markdown(html_markup, unsafe_allow_html=True)
+
+
+@st.fragment(run_every=1.5)
+def _render_live_monitoring_fragment():
+    from live_ids.logger import get_stats, get_recent_alerts, get_recent_activity
+    stats = get_stats()
+    alerts = get_recent_alerts(25)
+    activity = get_recent_activity(40)
+    html_markup = _build_traffic_monitoring_html(stats, alerts, activity, is_running=True)
+    _render_monitoring_markup(html_markup)
+
+
+@st.fragment()
+def _render_static_monitoring_fragment():
+    from live_ids.logger import get_stats, get_recent_alerts, get_recent_activity
+    stats = get_stats()
+    alerts = get_recent_alerts(25)
+    activity = get_recent_activity(40)
+    html_markup = _build_traffic_monitoring_html(stats, alerts, activity, is_running=False)
+    _render_monitoring_markup(html_markup)
+
+
+def render_traffic_monitoring_tab():
+    from live_ids.simulator import get_simulator
+    from live_ids.logger import clear_logs
+
+    sim = get_simulator()
+    is_running = sim.is_running()
 
     st.markdown("""
-    <div style="background:#111827;border:1px solid #1e2d45;border-radius:12px;
-                padding:2rem;text-align:center;margin-top:1rem;">
-      <div style="font-size:3rem;margin-bottom:1rem;">🖥️</div>
-      <div style="font-family:'Space Mono',monospace;font-size:1.1rem;
-                  color:#00d4ff;font-weight:700;margin-bottom:0.5rem;">
-        Run Locally for Live Capture
-      </div>
-      <div style="font-size:0.88rem;color:#94a3b8;line-height:1.8;margin-bottom:1.5rem;">
-        To capture live network traffic, run NetGuard AI on your own machine.<br>
-        It takes less than 2 minutes to set up.
-      </div>
-
-      <div style="background:#0b0f1a;border:1px solid #1e2d45;border-radius:10px;
-                  padding:1.2rem;text-align:left;margin-bottom:1.5rem;max-width:500px;margin-left:auto;margin-right:auto;">
-        <div style="font-family:'Space Mono',monospace;font-size:0.7rem;
-                    color:#475569;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.8rem;">
-          Setup Instructions
-        </div>
-        <div style="font-family:'Space Mono',monospace;font-size:0.82rem;color:#e2e8f0;line-height:2;">
-          <span style="color:#7c3aed">#</span> 1. Clone the repo<br>
-          <span style="color:#10b981">$</span> git clone https://github.com/yourrepo/netguard<br><br>
-          <span style="color:#7c3aed">#</span> 2. Install dependencies<br>
-          <span style="color:#10b981">$</span> pip install -r requirements.txt<br><br>
-          <span style="color:#7c3aed">#</span> 3. Run with admin privileges<br>
-          <span style="color:#10b981">$</span> sudo streamlit run app.py &nbsp;&nbsp;<span style="color:#475569"># Linux/Mac</span><br>
-          <span style="color:#10b981">$</span> streamlit run app.py &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#475569"># Windows (as Admin)</span>
-        </div>
-      </div>
-
-      <div style="font-size:0.8rem;color:#475569;">
-        💡 On Windows? Use <b style="color:#e2e8f0">Wireshark</b> to save a .pcap file,
-        then upload it in the <b style="color:#00d4ff">Upload &amp; Analyze</b> tab above.
-      </div>
+    <div class="ng-callout" style="margin-bottom:1.2rem">
+      <b>Traffic Monitoring &amp; Live Simulation:</b> Replays real connection records
+      from the NSL-KDD benchmark through a multi-class Random Forest detector on a continuous timer.
+      Click <b>Start Monitoring</b> to activate real-time scoring, stream the live traffic pulse strip,
+      and track incoming intrusion alerts.
     </div>
     """, unsafe_allow_html=True)
 
+    # Action Controls Bar
+    c_status, c_start, c_stop, c_reset = st.columns([2.8, 1.2, 1, 1])
 
+    with c_status:
+        if is_running:
+            st.markdown("""
+            <div style="padding-top:4px;">
+              <div class="tm-status-pill live">
+                <span class="tm-status-dot live"></span>
+                <span style="color:#4FD1C5;font-weight:700">MONITORING LIVE</span>
+                <span style="color:#64748b;font-size:0.68rem">&nbsp;// 1.5s interval</span>
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style="padding-top:4px;">
+              <div class="tm-status-pill">
+                <span class="tm-status-dot"></span>
+                <span>STOPPED</span>
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    with c_start:
+        if st.button("▶  Start", disabled=is_running, key="btn_sim_start", use_container_width=True):
+            sim.start()
+            st.session_state.monitoring = True
+            st.rerun()
+
+    with c_stop:
+        if st.button("⏹  Stop", disabled=not is_running, key="btn_sim_stop", use_container_width=True):
+            sim.stop()
+            st.session_state.monitoring = False
+            st.rerun()
+
+    with c_reset:
+        if st.button("🔄  Reset", key="btn_sim_reset", use_container_width=True):
+            clear_logs()
+            st.rerun()
+
+    st.markdown("<div style='margin-bottom:0.8rem'></div>", unsafe_allow_html=True)
+
+    if is_running:
+        _render_live_monitoring_fragment()
+    else:
+        _render_static_monitoring_fragment()
 
 def main():
     with st.sidebar:
@@ -838,7 +1219,7 @@ def main():
         """, unsafe_allow_html=True)
 
         page = st.radio(
-            "", ["📁  Upload & Analyze", "🎙️  Live Capture", "ℹ️  About"],
+            "", ["📁  PCAP Upload & Analyze", "📡  Traffic Monitoring"],
             label_visibility="collapsed"
         )
 
@@ -855,6 +1236,22 @@ def main():
           ⚖️ Bayesian Combiner
         </div>
         """, unsafe_allow_html=True)
+        with st.expander("ℹ️  Architecture & AI Models"):
+            st.markdown("""
+            <div style="font-size:0.75rem;line-height:1.7;color:#94a3b8">
+              <b style="color:#00d4ff">PCAP Engine (UNSW-NB15)</b><br>
+              • 32-42 flow features extracted via NFStream & Scapy<br>
+              • Supervised ensemble: XGBoost, LightGBM, Random Forest<br>
+              • Unsupervised: Isolation Forest anomaly scanner<br>
+              • Bayesian combination (50/50 weighted fusion)<br><br>
+              <b style="color:#4FD1C5">Live Engine (NSL-KDD)</b><br>
+              • Real-time traffic simulation & replay<br>
+              • 41-feature multi-class Random Forest detector<br>
+              • Alert prioritization: DoS, Probe, R2L, U2R<br>
+              • Animated pulse strip & audit logging
+            </div>
+            """, unsafe_allow_html=True)
+
         st.markdown("---")
         st.markdown("""
         <div style="font-size:0.72rem;color:#334155;line-height:1.8;padding:0 0.3rem">
@@ -977,77 +1374,10 @@ def main():
                 filename=st.session_state.get("upload_name", "capture.pcap"),
             )
 
-    elif "🎙️" in page:
-        render_topbar("ready")
-        render_live_capture_tab()
-
-    elif "ℹ️" in page:
-        render_topbar("ready")
-        st.markdown('<div class="ng-panel">', unsafe_allow_html=True)
-        st.markdown('<div class="ng-panel-title"><span>🛡️</span> About NetGuard AI</div>',
-                    unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div class="ng-callout">
-          <b>NetGuard AI</b> is a network intrusion detection system that uses machine learning
-          to automatically detect attacks and anomalies in network traffic.<br><br>
-
-          <b>How the AI works (in plain English):</b><br>
-          Imagine you have a very experienced security guard who has watched millions of security
-          camera recordings. They've seen exactly what normal, everyday activity looks like —
-          and they've also seen every type of break-in attempt. When you hand them a new
-          recording, they can immediately spot anything that "doesn't look right."<br><br>
-          That's exactly what our AI does with network traffic. It was trained on a massive
-          dataset of both normal internet usage and real cyber attacks, so it learned the
-          difference. Now it checks every connection in your network recording and flags
-          anything suspicious.<br><br>
-
-          <b>The 5 AI models working together:</b><br>
-          ① <b>XGBoost</b> — Very fast, great at spotting known attack patterns<br>
-          ② <b>LightGBM</b> — Handles large amounts of data efficiently<br>
-          ③ <b>Random Forest</b> — Stable and hard to fool<br>
-          ④ <b>Isolation Forest</b> — Detects strange, one-of-a-kind anomalies<br>
-          ⑤ <b>Bayesian Combiner</b> — Weighs all four votes and makes the final call<br><br>
-
-          <b>Training dataset:</b> UNSW-NB15 — a standard academic benchmark with over
-          2.5 million network flows covering 9 attack types: Fuzzers, Analysis, Backdoors,
-          DoS, Exploits, Generic, Reconnaissance, Shellcode, and Worms.
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        col_a, col_b = st.columns(2)
-        with col_a:
-            st.markdown('<div class="ng-panel">', unsafe_allow_html=True)
-            st.markdown('<div class="ng-panel-title"><span>⚙️</span> Feature Pipeline</div>',
-                        unsafe_allow_html=True)
-            st.markdown("""
-            <div class="ng-callout">
-              <b>Step 1</b> — PCAP file is read by NFStream<br>
-              <b>Step 2</b> — 42 statistical features extracted per flow<br>
-              <b>Step 3</b> — Categorical features encoded<br>
-              <b>Step 4</b> — Data normalized by StandardScaler<br>
-              <b>Step 5</b> — Isolation Forest scores anomalies<br>
-              <b>Step 6</b> — Ensemble classifiers predict attacks<br>
-              <b>Step 7</b> — Bayesian combination → final verdict
-            </div>
-            """, unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-        with col_b:
-            st.markdown('<div class="ng-panel">', unsafe_allow_html=True)
-            st.markdown('<div class="ng-panel-title"><span>📦</span> Requirements</div>',
-                        unsafe_allow_html=True)
-            st.markdown("""
-            <div class="ng-callout">
-              <code>pip install streamlit plotly nfstream scapy</code><br>
-              <code>pip install xgboost lightgbm scikit-learn joblib</code><br><br>
-              For live capture:<br>
-              <code>sudo apt install tcpdump</code> (Linux)<br>
-              <code>brew install tcpdump</code> (macOS)<br><br>
-              Place trained model files in <code>./models/</code>
-            </div>
-            """, unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+    elif "📡" in page:
+        from live_ids.simulator import get_simulator
+        render_topbar("live" if get_simulator().is_running() else "ready")
+        render_traffic_monitoring_tab()
 
 
 if __name__ == "__main__":
