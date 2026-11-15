@@ -16,14 +16,29 @@ LOG_DIR = Path(__file__).resolve().parent / "logs"
 ACTIVITY_LOG = LOG_DIR / "activity_log.jsonl"
 ALERT_LOG = LOG_DIR / "alerts.jsonl"
 
-_lock = threading.Lock()  # simple guard since Flask dev server + simulator thread both write
+_lock = threading.Lock()
+MAX_LOG_RECORDS = 5000
+_append_counter = 0
 
 
 def _append_jsonl(path: Path, record: dict):
+    global _append_counter
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     with _lock:
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(record) + "\n")
+        _append_counter += 1
+        if _append_counter >= 500:
+            _append_counter = 0
+            if path.exists():
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        lines = f.readlines()
+                    if len(lines) > MAX_LOG_RECORDS:
+                        with open(path, "w", encoding="utf-8") as f:
+                            f.writelines(lines[-2500:])
+                except Exception:
+                    pass
 
 
 def log_activity(result: dict):

@@ -60,7 +60,19 @@
 
 ```text
 NetDetect/
-├── dashboard.py                  # Main Streamlit application (PCAP & Traffic Monitoring)
+├── dashboard.py                  # Main Streamlit application orchestrator
+├── ui/                           # Modular SOC Frontend Architecture
+│   ├── styles.py                 # Centralized SOC dark design system & tokens
+│   ├── layout.py                 # Sidebar navigation & topbar SOC header
+│   ├── components.py             # Reusable UI widgets (cards, badges, banners)
+│   ├── charts.py                 # Cohesive Plotly cybersecurity visualizations
+│   └── views/                    # Section-specific views
+│       ├── overview.py           # Global security posture & telemetry
+│       ├── analysis.py           # PCAP upload, pipeline inspection & sample test
+│       ├── results.py            # Deep threat classification & flow ledger
+│       ├── visualization.py      # Transport protocol & traffic volume charts
+│       ├── live_monitoring.py    # Real-time traffic simulation & pulse strip
+│       └── history.py            # Session audits & disk-backed activity logs
 ├── feature_extraction.py         # NFStream + Scapy PCAP flow extraction
 ├── prediction.py                 # UNSW-NB15 ensemble prediction & Bayesian fusion
 ├── models/                       # UNSW-NB15 trained model artifacts
@@ -97,6 +109,7 @@ NetDetect/
 ├── sample_pcaps/
 │   └── sample_traffic.pcap       # Sample PCAP capture for testing
 ├── .env.example                  # Environment configuration template
+├── .python-version               # Python 3.11 pin for cloud runners
 ├── .dockerignore                 # Docker build exclusions
 ├── Dockerfile                    # Containerization specification
 ├── packages.txt                  # Linux system packages (Streamlit Cloud / Debian)
@@ -140,6 +153,59 @@ streamlit run dashboard.py
 ```
 
 Open `http://localhost:8501` in your browser to access the unified NetDetect interface. Use the sidebar to seamlessly switch between **PCAP Upload & Analyze** and **Traffic Monitoring**.
+
+---
+
+## Cloud Deployment Guide
+
+### Streamlit Community Cloud (Recommended)
+
+1. **Push your repository to GitHub:** Ensure all files, including `packages.txt`, `.python-version`, and model directories, are pushed to your remote repository on the `main` branch.
+2. **Access Streamlit Cloud:** Navigate to [share.streamlit.io](https://share.streamlit.io) and sign in with your GitHub account.
+3. **Create New App:**
+   - Click **New app**.
+   - Select your **Repository**: `your-username/NetDetect`.
+   - Select your **Branch**: `main`.
+   - Set **Main file path**: `dashboard.py`.
+4. **Advanced Settings (Optional):**
+   - Python Version: Automatically picked up as `3.11` from `.python-version`.
+   - Secrets: NetDetect operates locally and does not require third-party API keys or external database credentials.
+5. **Deploy:** Click **Deploy!**
+   - Streamlit Cloud automatically reads `packages.txt` to install `libpcap-dev` and `libpcap0.8`.
+   - Python wheels from `requirements.txt` will be installed.
+6. **Verify Public URL:** Once the build completes, the app will be live at `https://<your-app-name>.streamlit.app`.
+
+---
+
+### Docker Deployment
+
+To build and run NetDetect inside an isolated container:
+
+```bash
+# Build Docker image
+docker build -t netdetect:latest .
+
+# Run container on port 8501
+docker run -d -p 8501:8501 --name netdetect-app netdetect:latest
+```
+
+The container includes a built-in healthcheck at `http://localhost:8501/_stcore/health`.
+
+---
+
+## Known Limitations
+
+1. **Traffic Simulation vs. Live Packet Capture:** The Traffic Monitoring subsystem replays real connection records from the NSL-KDD benchmark. It runs without raw sockets or administrator privileges, making it cloud-friendly. It is not raw-socket hardware packet capture.
+2. **Ephemeral Storage:** Free-tier cloud instances (like Streamlit Cloud) utilize ephemeral containers. Log files (`activity_log.jsonl`) are automatically rotated (capped at 5,000 entries) and reset on container rebuilds.
+3. **PCAP Upload Size:** Configured to a maximum of 50 MB to prevent memory exhaustion (OOM) on 1 GB free-tier cloud containers.
+
+---
+
+## Deployment Troubleshooting
+
+- **`ImportError: libpcap.so.0.8: cannot open shared object file`**: Ensure `packages.txt` is present at the repository root with `libpcap-dev` and `libpcap0.8`.
+- **`MemoryError` / Container Killed:** Ensure uploaded PCAP files are under 50 MB.
+- **Model Deserialization Warnings:** Scikit-learn unpickling warnings between minor versions (e.g. 1.8 vs 1.9) are non-breaking and handled automatically.
 
 ---
 

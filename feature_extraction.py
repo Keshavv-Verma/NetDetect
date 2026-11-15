@@ -1,7 +1,15 @@
 from collections import deque
 
 import pandas as pd
-from nfstream import NFStreamer
+import numpy as np
+try:
+    from nfstream import NFStreamer
+    NFSTREAM_AVAILABLE = True
+    _NFSTREAM_ERROR = None
+except Exception as _e:
+    NFSTREAM_AVAILABLE = False
+    _NFSTREAM_ERROR = str(_e)
+
 from scapy.all import IP, TCP, UDP, Raw, PcapReader
 
 
@@ -46,12 +54,138 @@ PORT_TO_SERVICE = {
 }
 
 
-def load_pcap(pcap_path: str) -> pd.DataFrame:
-    streamer = NFStreamer(source=pcap_path, statistical_analysis=True)
-    df = streamer.to_pandas()
-    df = df.sort_values('bidirectional_first_seen_ms').reset_index(drop=True)
+def _load_pcap_scapy(pcap_path: str) -> pd.DataFrame:
+    flows = {}
+    with PcapReader(pcap_path) as reader:
+        for pkt in reader:
+            if not pkt.haslayer(IP):
+                continue
+            src_ip = pkt[IP].src
+            dst_ip = pkt[IP].dst
+            proto = int(pkt[IP].proto)
+            
+            src_port = 0
+            dst_port = 0
+            flags = 0
+            if pkt.haslayer(TCP):
+                src_port = int(pkt[TCP].sport)
+                dst_port = int(pkt[TCP].dport)
+                flags = int(pkt[TCP].flags)
+            elif pkt.haslayer(UDP):
+                src_port = int(pkt[UDP].sport)
+                dst_port = int(pkt[UDP].dport)
+            
+            ts = float(pkt.time)
+            size = len(pkt)
+            
+            if (src_ip, src_port) <= (dst_ip, dst_port):
+                key = (src_ip, dst_ip, src_port, dst_port, proto)
+                is_fwd = True
+            else:
+                key = (dst_ip, src_ip, dst_port, src_port, proto)
+                is_fwd = False
+                
+            if key not in flows:
+                flows[key] = {
+                    'src_ip': src_ip, 'dst_ip': dst_ip,
+                    'src_port': src_port, 'dst_port': dst_port,
+                    'protocol': proto,
+                    'pkts': [],
+                }
+            flows[key]['pkts'].append((ts, size, is_fwd, flags))
+
+    if not flows:
+        return pd.DataFrame()
+
+    rows = []
+    for key, f in flows.items():
+        pkts = f['pkts']
+        pkts.sort(key=lambda x: x[0])
+        
+        times = [p[0] for p in pkts]
+        t_start = times[0]
+        t_end = times[-1]
+        b_dur_ms = float(int(round((t_end - t_start) * 1000.0)))
+        
+        fwd_pkts = [p for p in pkts if p[2]]
+        rev_pkts = [p for p in pkts if not p[2]]
+        
+        s2d_pkts = len(fwd_pkts)
+        d2s_pkts = len(rev_pkts)
+        s2d_bytes = sum(p[1] for p in fwd_pkts)
+        d2s_bytes = sum(p[1] for p in rev_pkts)
+        
+        if len(fwd_pkts) > 1:
+            fwd_times = [p[0] for p in fwd_pkts]
+            piats = [(fwd_times[i] - fwd_times[i-1]) * 1000.0 for i in range(1, len(fwd_times))]
+            s2d_mean_piat = float(np.mean(piats))
+            s2d_dur_ms = float(int(round((fwd_times[-1] - fwd_times[0]) * 1000.0)))
+        else:
+            s2d_mean_piat = 0.0
+            s2d_dur_ms = 0.0
+            
+        if len(rev_pkts) > 1:
+            rev_times = [p[0] for p in rev_pkts]
+            d2s_dur_ms = float(int(round((rev_times[-1] - rev_times[0]) * 1000.0)))
+        else:
+            d2s_dur_ms = 0.0
+            
+        s2d_mean_ps = float(np.mean([p[1] for p in fwd_pkts])) if fwd_pkts else 0.0
+        d2s_mean_ps = float(np.mean([p[1] for p in rev_pkts])) if rev_pkts else 0.0
+        
+        s2d_rst = sum(1 for p in fwd_pkts if (p[3] & 0x04))
+        d2s_rst = sum(1 for p in rev_pkts if (p[3] & 0x04))
+        s2d_fin = sum(1 for p in fwd_pkts if (p[3] & 0x01))
+        d2s_fin = sum(1 for p in rev_pkts if (p[3] & 0x01))
+        s2d_syn = sum(1 for p in fwd_pkts if (p[3] & 0x02))
+        
+        rows.append({
+            'bidirectional_first_seen_ms': int(round(t_start * 1000.0)),
+            'bidirectional_duration_ms': b_dur_ms,
+            'src2dst_duration_ms': s2d_dur_ms,
+            'dst2src_duration_ms': d2s_dur_ms,
+            'src2dst_packets': s2d_pkts,
+            'dst2src_packets': d2s_pkts,
+            'src2dst_bytes': s2d_bytes,
+            'dst2src_bytes': d2s_bytes,
+            'src2dst_rst_packets': s2d_rst,
+            'dst2src_rst_packets': d2s_rst,
+            'src2dst_fin_packets': s2d_fin,
+            'dst2src_fin_packets': d2s_fin,
+            'src2dst_syn_packets': s2d_syn,
+            'src2dst_mean_piat_ms': s2d_mean_piat,
+            'src2dst_mean_ps': s2d_mean_ps,
+            'dst2src_mean_ps': d2s_mean_ps,
+            'protocol': f['protocol'],
+            'src_port': f['src_port'],
+            'dst_port': f['dst_port'],
+            'src_ip': f['src_ip'],
+            'dst_ip': f['dst_ip'],
+        })
+
+    df = pd.DataFrame(rows)
+    if not df.empty:
+        df = df.sort_values(['bidirectional_first_seen_ms', 'src_ip', 'dst_ip', 'src_port', 'dst_port']).reset_index(drop=True)
     return df
 
+
+def load_pcap(pcap_path: str) -> pd.DataFrame:
+    """
+    Load a PCAP file and convert packets into bidirectional network flows.
+    Attempts NFStream first (if C-engine is present), and falls back seamlessly
+    to pure-Python Scapy flow extraction if Npcap / libpcap is not installed.
+    """
+    if NFSTREAM_AVAILABLE:
+        try:
+            streamer = NFStreamer(source=pcap_path, statistical_analysis=True)
+            df = streamer.to_pandas()
+            if not df.empty:
+                df = df.sort_values(['bidirectional_first_seen_ms', 'src_ip', 'dst_ip', 'src_port', 'dst_port']).reset_index(drop=True)
+                return df
+        except Exception:
+            pass
+    # Pure-Python Scapy fallback: runs reliably on Windows/Linux/macOS without C-libraries
+    return _load_pcap_scapy(pcap_path)
 
 
 def extract_basic_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -334,18 +468,30 @@ def compute_ct_flw_http_mthd(df: pd.DataFrame, raw_df: pd.DataFrame, trans_depth
     return raw_df
 
 
-def extract_all_features(pcap_path: str) -> pd.DataFrame:
-
+def extract_all_features_legacy(pcap_path: str) -> pd.DataFrame:
+    """
+    Original legacy multi-pass feature extraction pipeline for baseline regression testing.
+    """
     df = load_pcap(pcap_path)
-    
     raw_df = extract_basic_features(df)
-
     maps = _single_pcap_pass(pcap_path)
-    
     raw_df = apply_pcap_features(df, raw_df, maps)
-
     raw_df = compute_ct_features(df, raw_df)
-
     raw_df = compute_ct_flw_http_mthd(df, raw_df, maps['trans_depth_map'])
-
     return raw_df
+
+
+def extract_all_features(pcap_path: str) -> pd.DataFrame:
+    """
+    Extract all 32 UNSW-NB15 flow features from a packet capture.
+    Utilizes optimized single-pass packet inspection engine with fallback.
+    """
+    try:
+        from backend.packet_processing.extractor import extract_all_features_optimized
+        raw_df, _ = extract_all_features_optimized(pcap_path)
+        if raw_df is not None and not raw_df.empty:
+            return raw_df
+    except Exception:
+        pass
+
+    return extract_all_features_legacy(pcap_path)

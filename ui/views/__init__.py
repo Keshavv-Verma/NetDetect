@@ -1,0 +1,3 @@
+"""
+NetDetect Views Package
+"""
